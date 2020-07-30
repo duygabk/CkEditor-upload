@@ -30,6 +30,7 @@ function ProductForm(props) {
     let productImageBuff = [...productImage];
     let previewImageBuff = [...previewImage];
 
+    // commit to github
     console.log(previewImageBuff);
 
     productImageBuff.splice(index, 1);
