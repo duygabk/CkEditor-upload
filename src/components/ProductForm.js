@@ -1,9 +1,51 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import CKEditor from "@ckeditor/ckeditor5-react";
 import ClassicEditor from "@ckeditor/ckeditor5-build-classic";
 
-const UPLOAD_URL = "http://localhost:8888/api/product/add-product";
+import axios from "axios";
+import Progress from "./Progress";
+
+const ADD_PRODUCT_URL = "http://localhost:8888/api/product/add-product";
+
 const UPLOAD_CKEDITOR_URL = "http://localhost:8888/api/product/testupload";
+
+function ImageThumb(props) {
+  return (
+    <div className="card float-left" style={{ maxWidth: 180 }}>
+      <img
+        className="card-img-top"
+        src={props.src}
+        alt="thumb"
+        style={{ width: "100%" }}
+      />
+      <div className="card-img-overlay pt-1 float-right">
+        <p className="btn btn-danger text-right" onClick={props.delete}>
+          x
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function UploadProgress(props) {
+  return (
+    <div
+      className="bg-secondary p-2 rounded"
+      style={{
+        position: "absolute",
+        bottom: 0,
+        right: 0,
+        width: "100%",
+        maxWidth: 400,
+        maxHeight: 400,
+        padding: 1
+      }}
+    >
+      <Progress percent={props.percent} />
+    </div>
+  );
+}
+
 function ProductForm(props) {
   const [productInfo, setProductInfo] = useState({
     productName: "",
@@ -18,71 +60,67 @@ function ProductForm(props) {
 
   const [previewImage, setPreviewImage] = useState([]);
 
+  const [uploadProcess, setUploadPeocess] = useState(0);
+
+  // only update preview image when image change
+  useEffect(() => {
+    console.log("image change", productImage);
+    const previewBuff = productImage.map((image, key) => {
+      return (
+        <ImageThumb
+          key={key}
+          src={URL.createObjectURL(image)}
+          delete={() => deleteImage(key)}
+        />
+      );
+    });
+    setPreviewImage(previewBuff);
+  }, [productImage]);
+
   const handleSubmit = event => {
     event.preventDefault();
     const form = document.getElementsByClassName("needs-validation")[0];
     form.classList.add("was-validated");
     // console.log("submit ", form[0]);
+    // creat Form Data to post to server
+    const postData = new FormData();
+    if (productImage.length) {
+      for (let i = 0; i < productImage.length; i++) {
+        postData.append("productimage", productImage[i], productImage[i].name);
+      }
+    }
+
+    postData.append("productpara", productInfo);
+    // Test post to server
+    axios({
+      method: "POST",
+      url: ADD_PRODUCT_URL,
+      data: postData,
+      onUploadProgress: progress => {
+        const { loaded, total } = progress;
+        const percent = Math.floor((loaded / total) * 100);
+        setUploadPeocess(percent);
+        // console.log(`${loaded}/${total}`);
+      }
+    })
+      .then(res => {
+        console.log(res.data);
+        setUploadPeocess(0);
+      })
+      .catch(err => console.log(err));
   };
 
-  const showImageInfo = index => {
-    console.log(index);
-    let productImageBuff = [...productImage];
-    let previewImageBuff = [...previewImage];
-
-    // commit to github
-    console.log(previewImageBuff);
-
-    productImageBuff.splice(index, 1);
-    previewImageBuff.splice(index, 1);
-
-    console.log(previewImageBuff);
-
-    // setProductImage(productImageBuff);
-    // setPreviewImage(previewImageBuff);
+  const deleteImage = index => {
+    // console.log(index, productImage);
+    const afterDelImage = productImage.filter((img, key) => key !== index);
+    setProductImage(afterDelImage);
   };
 
   const handleOnChangeImage = event => {
-    // console.log(event.target.files.length);
-    // event.target.files.length && setFileImage(event.target.files);
-    // const totalImage = event.target.files.length;
-    // test image
     const { files } = event.target;
-    // let productImageBuff = [...productImage];
     let productImageBuff = [...productImage, ...files];
+    // array of image files
     setProductImage(productImageBuff);
-    console.log(productImageBuff);
-    // [...files].map(file => console.log(URL.createObjectURL(file)));
-    // [...files].map(file => console.warn(file.name));
-    // end test image
-    let previewImageBuff = [...previewImage];
-    [...files].length &&
-      [...files].map((file, key) => {
-        const url = URL.createObjectURL(file);
-        const index = previewImage.length + key;
-        const imgTag = (
-          <div className="m-2 text-align-center" key={index}>
-            <img
-              src={url}
-              style={{ width: 150, margin: 2, display: "block" }}
-              alt="preview Product"
-            />
-            <button onClick={() => showImageInfo(index)}>remove</button>
-          </div>
-        );
-        previewImageBuff.push(imgTag);
-      });
-    setPreviewImage(previewImageBuff);
-    // let urlLocalArr = [];
-    // for (let i = 0; i < totalImage; i++) {
-    //   const img = event.target.files[i];
-    //   const imgUrl = URL.createObjectURL(img);
-    //   urlLocalArr.push(imgUrl);
-    // }
-    // const previewTags = urlLocalArr.map((url, key) => (
-    //   <img src={url} key={key} style={{ width: 150 }} alt="preview Product" />
-    // ));
-    // setPreviewImage(previewTags);
   };
 
   const handleOnchange = event => {
@@ -103,7 +141,10 @@ function ProductForm(props) {
   // console.log(productInfo);
 
   return (
-    <div className="border rounded border-success p-3">
+    <div
+      className="border rounded border-success p-3"
+      style={{ position: "relative" }}
+    >
       <form
         // action={UPLOAD_URL}
         method="post"
@@ -193,7 +234,9 @@ function ProductForm(props) {
             </label>
           </div>
           {previewImage.length ? (
-            <div className="bg-dark text-white p-2 preview">{previewImage}</div>
+            <div className="bg-dark text-white p-1  card-columns">
+              {previewImage}
+            </div>
           ) : null}
         </div>
         {/* product specification */}
@@ -222,6 +265,7 @@ function ProductForm(props) {
           </button>
         </div>
       </form>
+      <UploadProgress percent={uploadProcess} />
     </div>
   );
 }
