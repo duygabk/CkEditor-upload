@@ -9,6 +9,15 @@ const ADD_PRODUCT_URL = "http://localhost:8888/api/product/add-product";
 
 const UPLOAD_CKEDITOR_URL = "http://localhost:8888/api/product/testupload";
 
+const REMOVE_IMAGE_URL = "http://localhost:8888/api/product/delete-image";
+
+function getFileName(fileUrl) {
+  if (!fileUrl.length) return "";
+  const arr = fileUrl.split("");
+  const fileName = arr.slice(arr.lastIndexOf("/") + 1).join("");
+  return fileName;
+}
+
 function ImageThumb(props) {
   const { url, delete: deleteImageByUrl } = props;
   return (
@@ -76,19 +85,20 @@ function ProductForm(props) {
     form.classList.add("was-validated");
     // console.log("submit ", form[0]);
     // creat Form Data to post to server
-    const postData = new FormData();
-    if (productImage.length) {
-      for (let i = 0; i < productImage.length; i++) {
-        postData.append("productimage", productImage[i], productImage[i].name);
-      }
-    }
-
-    postData.append("productpara", productInfo);
+    // const postData = new FormData();
+    // if (productImage.length) {
+    //   for (let i = 0; i < productImage.length; i++) {
+    //     postData.append("productimage", productImage[i], productImage[i].name);
+    //   }
+    // }
+    // postData.append("productpara", productInfo);
     // Test post to server
+    let productInfoToPost = { ...productInfo };
+    productInfoToPost.productImage = productImage;
     axios({
       method: "POST",
       url: ADD_PRODUCT_URL,
-      data: postData,
+      data: { productInfo: productInfoToPost },
       onUploadProgress: progress => {
         const { loaded, total } = progress;
         const percent = Math.floor((loaded / total) * 100);
@@ -100,21 +110,18 @@ function ProductForm(props) {
         console.log(res.data);
         setUploadPeocess(0);
       })
-      .catch(err => console.log(err));
+      .catch(err => console.log(err.message));
   };
 
   const deleteImage = url => {
     // delete image from server by image url
-    // console.log("delete image: ", url);
+    console.log("delete image: ", url);
     if (!url.length) return;
-    const REMOVE_IMAGE_URL = "http://localhost:8888/api/product/delete-image";
-    const arr = url.split("");
-    const fileName = arr.slice(arr.lastIndexOf("/") + 1).join("");
 
     axios({
       method: "DELETE",
       url: REMOVE_IMAGE_URL,
-      data: { filename: fileName }
+      data: { filename: getFileName(url) }
     })
       .then(res => {
         console.log("delete ok ? : ", res.data);
@@ -181,16 +188,29 @@ function ProductForm(props) {
         imageUrls.push(images[i].getAttribute("src"));
       }
       // console.log(imageUrls);
-      const ckeditorImages = imageUrls.filter(
+      const ckeditorNewImage = imageUrls.filter(
         img => productImage.indexOf(img) === -1
       );
-      // console.log(ckeditorImages);
+      console.log(ckeditorNewImage);
       // get need remove image list
       const removeImage = ckeditorImage.filter(
-        img => ckeditorImages.indexOf(img) === -1
+        img => ckeditorNewImage.indexOf(img) === -1
       );
-      // console.log(removeImage);
-      setCkeditorImage(ckeditorImages);
+      console.log("remove item: ", { removeImage });
+      if (removeImage.length) {
+        axios({
+          method: "DELETE",
+          url: REMOVE_IMAGE_URL,
+          data: { filename: getFileName(removeImage[0]) }
+        })
+          .then(res => {
+            console.log(res.data);
+            setCkeditorImage(ckeditorNewImage);
+          })
+          .catch(err => {
+            console.log(err.message);
+          });
+      }
     }
     // remove image id it is deleted
 
