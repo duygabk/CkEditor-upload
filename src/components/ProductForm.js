@@ -10,16 +10,20 @@ const ADD_PRODUCT_URL = "http://localhost:8888/api/product/add-product";
 const UPLOAD_CKEDITOR_URL = "http://localhost:8888/api/product/testupload";
 
 function ImageThumb(props) {
+  const { url, delete: deleteImageByUrl } = props;
   return (
     <div className="card float-left" style={{ maxWidth: 180 }}>
       <img
         className="card-img-top"
-        src={props.src}
+        src={url}
         alt="thumb"
         style={{ width: "100%" }}
       />
       <div className="card-img-overlay pt-1 float-right">
-        <p className="btn btn-danger text-right" onClick={props.delete}>
+        <p
+          className="btn btn-danger text-right"
+          onClick={() => deleteImageByUrl(url)}
+        >
           x
         </p>
       </div>
@@ -58,24 +62,13 @@ function ProductForm(props) {
 
   const [productImage, setProductImage] = useState([]);
 
-  const [previewImage, setPreviewImage] = useState([]);
+  const [ckeditorImage, setCkeditorImage] = useState([]);
 
   const [uploadProcess, setUploadPeocess] = useState(0);
 
-  // only update preview image when image change
   useEffect(() => {
-    console.log("image change", productImage);
-    const previewBuff = productImage.map((image, key) => {
-      return (
-        <ImageThumb
-          key={key}
-          src={URL.createObjectURL(image)}
-          delete={() => deleteImage(key)}
-        />
-      );
-    });
-    setPreviewImage(previewBuff);
-  }, [productImage]);
+    console.log("Product Form Loaded");
+  }, []);
 
   const handleSubmit = event => {
     event.preventDefault();
@@ -110,17 +103,63 @@ function ProductForm(props) {
       .catch(err => console.log(err));
   };
 
-  const deleteImage = index => {
-    // console.log(index, productImage);
-    const afterDelImage = productImage.filter((img, key) => key !== index);
-    setProductImage(afterDelImage);
+  const deleteImage = url => {
+    // delete image from server by image url
+    // console.log("delete image: ", url);
+    if (!url.length) return;
+    const REMOVE_IMAGE_URL = "http://localhost:8888/api/product/delete-image";
+    const arr = url.split("");
+    const fileName = arr.slice(arr.lastIndexOf("/") + 1).join("");
+
+    axios({
+      method: "DELETE",
+      url: REMOVE_IMAGE_URL,
+      data: { filename: fileName }
+    })
+      .then(res => {
+        console.log("delete ok ? : ", res.data);
+        // response from server OK
+        if (!res.data.error) {
+          // update state after remove
+          const afterDelImage = productImage.filter(img => img !== url);
+          setProductImage(afterDelImage);
+        }
+      })
+      .catch(err => {
+        console.log("delete failed: ", err.message);
+      });
   };
 
   const handleOnChangeImage = event => {
     const { files } = event.target;
-    let productImageBuff = [...productImage, ...files];
+    // update image to server and receive image link
+    if (!files.length) return;
+
+    const IMAGE_URL = "http://localhost:8888/api/product/upload-image";
+
+    const formData = new FormData();
+    for (let i = 0; i < files.length; i++) {
+      formData.append("productimage", files[i], files[i].name);
+    }
+
+    axios({
+      method: "POST",
+      url: IMAGE_URL,
+      data: formData,
+      onUploadProgress: function(progress) {
+        const { loaded, total } = progress;
+        console.log({ loaded, total });
+      }
+    })
+      .then(res => {
+        console.log("res ", res.data);
+        setProductImage(image => [...image, ...res.data.url]);
+      })
+      .catch(err => console.log("err ", err.message));
+
+    // let productImageBuff = [...productImage, ...files];
     // array of image files
-    setProductImage(productImageBuff);
+    // setProductImage(productImageBuff);
   };
 
   const handleOnchange = event => {
@@ -133,12 +172,35 @@ function ProductForm(props) {
 
   const handleCKEditorChange = (event, editor) => {
     const data = editor.getData();
+    // console.log(data);
+    const images = document.getElementsByTagName("img");
+    if (images.length) {
+      const imageUrls = [];
+      // images is an object, therefore, can not using map, filter...
+      for (let i = 0; i < images.length; i++) {
+        imageUrls.push(images[i].getAttribute("src"));
+      }
+      // console.log(imageUrls);
+      const ckeditorImages = imageUrls.filter(
+        img => productImage.indexOf(img) === -1
+      );
+      // console.log(ckeditorImages);
+      // get need remove image list
+      const removeImage = ckeditorImage.filter(
+        img => ckeditorImages.indexOf(img) === -1
+      );
+      // console.log(removeImage);
+      setCkeditorImage(ckeditorImages);
+    }
+    // remove image id it is deleted
+
     let productInfoBuff = { ...productInfo };
     productInfoBuff.productSpecification = data;
     setProductInfo(productInfoBuff);
   };
 
   // console.log(productInfo);
+  // console.log(productImage);
 
   return (
     <div
@@ -233,11 +295,15 @@ function ProductForm(props) {
               Choose file
             </label>
           </div>
-          {previewImage.length ? (
-            <div className="bg-dark text-white p-1  card-columns">
-              {previewImage}
-            </div>
-          ) : null}
+
+          <div className="bg-dark text-white p-1  card-columns">
+            {/* {previewImage} */}
+            {productImage.length
+              ? productImage.map((imageUrl, key) => (
+                  <ImageThumb key={key} url={imageUrl} delete={deleteImage} />
+                ))
+              : null}
+          </div>
         </div>
         {/* product specification */}
         <div className="form-group">
