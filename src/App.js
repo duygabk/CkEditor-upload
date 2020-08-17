@@ -1,43 +1,27 @@
-import React, { useEffect } from "react";
-import "./styles.css";
-import "bootstrap/dist/css/bootstrap.min.css";
+import React from "react";
 
-// import ProductForm from "./components/admin/ProductForm";
+import ProductForm from "./components/admin/ProductForm";
 import AppHeader from "./components/common/AppHeader";
-import ProductCard from "./components/product/ProductCard";
-import { getAppMenu } from "./utils/axios";
+import AppBar from "./components/common/AppBar";
+import SideBar from "./components/common/SideBar";
 
-// import Progress from "./components/Progress";
-// import UploadMulty from "./components/UploadMulty";
-
-export default function App() {
-  // first time, load user, menu, display item...
-  useEffect(() => {
-    getAppMenu()
-      .then(res => {
-        console.log(res.data);
-      })
-      .catch(err => {
-        console.log(err.message);
-      });
-  }, []);
-
+export default function Application() {
   return (
-    <div className="App">
+    <>
+      <AppHeader />
+      <AppBar />
       <div className="container mt-1">
-        {/* <div className="row"> */}
-        <AppHeader />
-        {/* </div> */}
-        <div className="row mt-2">
-          <div className="card-columns">
-            <ProductCard productInfo={{}} />
-            <ProductCard productInfo={{}} />
-            <ProductCard productInfo={{}} />
-            <ProductCard productInfo={{}} />
-            <ProductCard productInfo={{}} />
+        <div className="row">
+          <div className="col-sm-3">
+            <SideBar />
+          </div>
+          <div className="col-sm-9" style={{ zIndex: 1 }}>
+            <ProductForm />
           </div>
         </div>
       </div>
-    </div>
+
+      <hr />
+    </>
   );
 }
